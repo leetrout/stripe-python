@@ -8,12 +8,24 @@ import stripe
 
 class FunctionalTests(unittest.TestCase):
     def test_dns_failure(self):
+        self.assertRaises(stripe.APIConnectionError, self._request_api_base)
+        self.assertRaises(stripe.APIConnectionError, self._request_api_short_base)
+
+    def _request_api_base(self):
         api_base = stripe.api_base
         try:
             stripe.api_base = 'https://my-invalid-domain.ireallywontresolve/v1'
-            self.assertRaises(stripe.APIConnectionError, stripe.Customer.create)
+            self.assertRaises(stripe.APIConnectionError, stripe.Charge.create(card={ 'number' : '4242424242424242', 'exp_month' : 3, 'exp_year' : 2015 }, amount=100, currency='usd'))
         finally:
             stripe.api_base = api_base
+
+    def _request_api_short_base(self):
+        api_short_base = stripe.api_short_base
+        try:
+            stripe.api_short_base = 'https://my-invalid-domain.ireallywontresolve/v1'
+            self.assertRaises(stripe.APIConnectionError, stripe.Customer.create())
+        finally:
+            stripe.api_short_base = api_short_base
 
     def test_run(self):
         c = stripe.Charge.create(amount=100, currency='usd', card={ 'number' : '4242424242424242', 'exp_month' : 03, 'exp_year' : 2015 })

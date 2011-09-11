@@ -67,6 +67,7 @@ logger = logging.getLogger('stripe')
 
 api_key = None
 api_base = 'https://api.stripe.com/v1'
+api_short_base = 'https://api-short.stripe.com/v1'
 verify_ssl_certs = True
 
 ## Exceptions
@@ -113,8 +114,12 @@ class APIRequestor(object):
     self.api_key = key
 
   @classmethod
-  def api_url(cls, url=''):
-    return '%s%s' % (api_base, url)
+  def api_url(cls, url='', short=False):
+    if short:
+      base = api_short_base
+    else:
+      base = api_base
+    return '%s%s' % (base, url)
 
   @classmethod
   def _utf8(cls, value):
@@ -195,7 +200,8 @@ class APIRequestor(object):
     if my_api_key is None:
       raise AuthenticationError('No API key provided.  (HINT: set your API key using "stripe.api_key = <API-KEY>".  You can generate API keys from the Stripe web interface.  See https://stripe.com/api for details, or email support@stripe.com if you have any questions.')
 
-    abs_url = self.api_url(url)
+    no_raw_card = not self.has_raw_card(params)
+    abs_url = self.api_url(url, no_raw_card)
     params = params.copy()
     self._objects_to_ids(params)
 
@@ -228,6 +234,17 @@ class APIRequestor(object):
       raise StripeError("Stripe bug discovered: invalid httplib %s.  Please report to support@stripe.com" % (_httplib, ))
     logger.info('API request to %s returned (response code, response body) of (%d, %r)' % (abs_url, rcode, rbody))
     return rbody, rcode, my_api_key
+
+  def has_raw_card(self, params):
+    if not params:
+      return False
+    for key, value in params.iteritems():
+      if key == 'card':
+        return not isinstance(value, str)
+      elif key.startswith('card'):
+        # Handle card[foo]
+        return True
+    return False
 
   def interpret_response(self, rbody, rcode):
     try:
